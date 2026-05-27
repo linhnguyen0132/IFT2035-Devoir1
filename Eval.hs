@@ -1,7 +1,6 @@
 {- HLINT ignore "Use record patterns" -}
 {- HLINT ignore "Use guards" -}
 module Eval where
-
 import Parseur ( Sexp(..), Symbol )
 
 -- ===========================================================================
@@ -321,8 +320,8 @@ typeCheck env (ELam x t corps) = case typeCheck ((x, t): env) corps of
 -- TODO: Vérifier le type d'une application f arg.
 -- f doit avoir un type TArrow t1 t2, arg doit avoir le type t1.
 -- Le type retourné est t2.
-typeCheck _ (EApp _ _)   = error "TODO: implanter typeCheck pour EApp"
-typeCheck env (EApp f arg) = do
+typeCheck _ (EApp _ _) = error "TODO: implanter typeCheck pour EApp"
+--typeCheck env (EApp f arg) = do
 
 
 
@@ -386,7 +385,13 @@ typeCheck env (EData declarations body) =
     contient _ [] = False
     contient x (y:ys) = x == y || contient x ys
 
-    
+    -- Construire l'environnement des constructeurs
+    constructeurEnv :: [NewDataType] -> [(Symbol, Type)]
+    constructeurEnv [] = []
+    constructeurEnv ((typeName, constructors) : reste) =
+      let envConstructeurs = [(constrName, foldr TArrow (TData typeName) argTypes) | (constrName, argTypes) <- constructors]
+      in envConstructeurs ++ constructeurEnv reste
+      
 -- TODO: Vérifier le type d'un case.
 -- L'expression scrutée doit être de type TData nomType.
 -- Pour chaque motif :
