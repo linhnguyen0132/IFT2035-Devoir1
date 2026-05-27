@@ -1,4 +1,5 @@
 {- HLINT ignore "Use record patterns" -}
+{- HLINT ignore "Use guards" -}
 module Eval where
 
 import Parseur ( Sexp(..), Symbol )
@@ -198,11 +199,7 @@ sexp2Exp (SList [SSym "let", SList definitions, body]) = do
 -- suivis de ses constructeurs. Un constructeur est soit un symbole (0 argument)
 -- soit une liste (nom + types des arguments).
 -- Retourner EData avec la liste des NewDataType et le corps parsé.
-sexp2Exp (SList [SSym "data", SList _, _]) = error
-
-
-
- "TODO: implanter sexp2Exp pour EData"
+sexp2Exp (SList [SSym "data", SList _, _]) = error "TODO: implanter sexp2Exp pour EData"
 
 -- TODO: Analyse d'un filtrage par motif.
 -- Syntaxe : (case expr ((Con1 corps1) ((Con2 x y) corps2) ...))
@@ -316,9 +313,10 @@ typeCheck env (EVar sym) = lookupSym env sym
 -- typeCheck _ (ELam _ _ _) = error "TODO: implanter typeCheck pour ELam"
 
 typeCheck env (ELam x t corps) = case typeCheck ((x, t): env) corps of
+  -- vérifier le type du corps
   Right typeCorps -> Right (TArrow t typeCorps)
   Left err -> Left "Mauvais type pour le corps du lambda"
-  
+
 
 -- TODO: Vérifier le type d'une application f arg.
 -- f doit avoir un type TArrow t1 t2, arg doit avoir le type t1.
@@ -345,10 +343,50 @@ typeCheck _ (ELet _ _)   = error "TODO: implanter typeCheck pour ELet"
 -- Chaque constructeur (Nom T1 T2) introduit une liaison dans l'environnement
 -- de type : Nom :: T1 -> T2 -> NomType.
 -- Le corps est ensuite typé dans cet environnement étendu.
-typeCheck _ (EData _ _) = error "TODO: implanter typeCheck pour EData"
+-- typeCheck _ (EData _ _) = error "TODO: implanter typeCheck pour EData"
+typeCheck env (EData declarations body) =
+  
+  if isInt declarations
+    then Left "Int ne peut pas être redéfini"
 
+  else if doublonTypes declarations
+    then Left "Les noms de types doivents être tous distincts"
 
+  else if doublonConstructeurs declarations
+    then Left "Les noms de constructeurs doivent être tous distincts"
 
+  else 
+    let env2 = constructeurEnv declarations ++ env 
+    in typeCheck env2 body
+
+  where
+    -- Vérifie s'il c'est un Int
+    isInt :: [NewDataType] -> Bool
+    isInt [] = False
+    isInt ((x, _) : reste) = x == "Int" || isInt reste
+
+    -- Vérifie s'il y a des doublons dans les types
+    doublonTypes :: [NewDataType] -> Bool
+    doublonTypes [] = False
+    doublonTypes ((x, _) : reste) = contient x (map fst reste) || doublonTypes reste
+  
+  -- Vérifie s'il y a des doublons dans les constructeurs
+    doublonConstructeurs :: [NewDataType] -> Bool
+    doublonConstructeurs [] = False
+    doublonConstructeurs declarations =
+      doublons [constr | (_ , constructors) <- declarations, (constr, _) <- constructors]
+    
+    -- Fonction pour vérifier s'il y a des doublons
+    doublons :: Eq a => [a] -> Bool
+    doublons [] = False
+    doublons (x:xs) = contient x xs || doublons xs
+    
+    -- Vérifier s'il un élément est dans une liste
+    contient :: Eq a => a -> [a] -> Bool
+    contient _ [] = False
+    contient x (y:ys) = x == y || contient x ys
+
+    
 -- TODO: Vérifier le type d'un case.
 -- L'expression scrutée doit être de type TData nomType.
 -- Pour chaque motif :
